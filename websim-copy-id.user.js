@@ -4,7 +4,7 @@
 // @version      1.0
 // @description  Copy WebSim project ID link to clipboard
 // @author       literallytwo
-// @match        https://websim.com/
+// @match        https://websim.com/*
 // @grant        none
 // ==/UserScript==
 

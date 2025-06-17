@@ -13,20 +13,22 @@
     
     const pathPattern = /^\/@[^/]+\/[^/]+/;
     let targetIframe = null;
-    let currentButton = null;
+    let currentButtons = [];
     
     // Function to check if we're on a matching route
     function isMatchingRoute() {
         return pathPattern.test(window.location.pathname);
     }
     
-    // Function to remove existing button
-    function removeExistingButton() {
-        if (currentButton && currentButton.parentNode) {
-            currentButton.parentNode.removeChild(currentButton);
-            currentButton = null;
-            console.log('WebSim Copy ID: Removed existing button');
-        }
+    // Function to remove existing buttons
+    function removeExistingButtons() {
+        currentButtons.forEach(button => {
+            if (button && button.parentNode) {
+                button.parentNode.removeChild(button);
+            }
+        });
+        currentButtons = [];
+        console.log('WebSim Copy ID: Removed existing buttons');
     }
     
     // Function to check for iframes
@@ -35,23 +37,49 @@
         return iframes.length > 0 ? iframes[0] : null;
     }
     
-    // Function to create the copy button
-    function createCopyButton(iframe) {
+    // Function to create the copy buttons
+    function createCopyButtons(iframe) {
         const targetContainer = document.querySelector('body > div > div.flex.items-stretch.flex-1.max-h-full.gap-0 > div.flex-1.flex.h-\\[100svh\\].relative > div.h-\\[44px\\].flex.flex-col.items-stretch.w-full.bg-adaptive-100.absolute.top-0 > div > div.flex.items-center.gap-1.flex-1.justify-end.h-full.px-2');
         
         if (!targetContainer) {
-            console.error('WebSim Copy ID: Could not find target container for button');
+            console.error('WebSim Copy ID: Could not find target container for buttons');
             return;
         }
         
-        // Remove any existing button first
-        removeExistingButton();
+        // Remove any existing buttons first
+        removeExistingButtons();
         
-        // Create the button
-        const copyButton = document.createElement('button');
-        copyButton.textContent = 'Copy permanent link';
-        copyButton.style.cssText = `
-            background: #3b82f6;
+        // Function to extract project ID from iframe
+        function extractProjectId() {
+            if (!iframe) {
+                console.error('WebSim Copy ID: No iframe available');
+                return null;
+            }
+            
+            const iframeSrc = iframe.src;
+            if (!iframeSrc) {
+                console.error('WebSim Copy ID: Iframe has no src attribute');
+                return null;
+            }
+            
+            console.log('WebSim Copy ID: Iframe src:', iframeSrc);
+            
+            // Extract ID from URL pattern: https://[ID].c.websim.com
+            const urlMatch = iframeSrc.match(/^https:\/\/([^.]+)\.c\.websim\.com/);
+            if (!urlMatch || !urlMatch[1]) {
+                console.error('WebSim Copy ID: Could not extract ID from iframe URL. Expected pattern: https://[ID].c.websim.com');
+                console.error('WebSim Copy ID: Actual URL:', iframeSrc);
+                return null;
+            }
+            
+            return urlMatch[1];
+        }
+        
+        // Create the "Copy ID" button
+        const copyIdButton = document.createElement('button');
+        copyIdButton.textContent = 'Copy ID';
+        copyIdButton.style.cssText = `
+            background: #6b7280;
             color: white;
             border: none;
             padding: 6px 12px;
@@ -61,65 +89,100 @@
             margin-left: 8px;
         `;
         
-        copyButton.addEventListener('mouseenter', () => {
-            copyButton.style.background = '#2563eb';
+        copyIdButton.addEventListener('mouseenter', () => {
+            copyIdButton.style.background = '#4b5563';
         });
         
-        copyButton.addEventListener('mouseleave', () => {
-            copyButton.style.background = '#3b82f6';
+        copyIdButton.addEventListener('mouseleave', () => {
+            copyIdButton.style.background = '#6b7280';
         });
         
-        // Add click handler
-        copyButton.addEventListener('click', async () => {
-            if (!iframe) {
-                console.error('WebSim Copy ID: No iframe available');
-                return;
-            }
-            
+        // Add click handler for Copy ID
+        copyIdButton.addEventListener('click', async () => {
             try {
                 console.log('WebSim Copy ID: Attempting to extract project ID from iframe URL...');
                 
-                // Get the iframe src URL
-                const iframeSrc = iframe.src;
-                if (!iframeSrc) {
-                    console.error('WebSim Copy ID: Iframe has no src attribute');
-                    return;
-                }
+                const projectId = extractProjectId();
+                if (!projectId) return;
                 
-                console.log('WebSim Copy ID: Iframe src:', iframeSrc);
-                
-                // Extract ID from URL pattern: https://[ID].c.websim.com
-                const urlMatch = iframeSrc.match(/^https:\/\/([^.]+)\.c\.websim\.com/);
-                if (!urlMatch || !urlMatch[1]) {
-                    console.error('WebSim Copy ID: Could not extract ID from iframe URL. Expected pattern: https://[ID].c.websim.com');
-                    console.error('WebSim Copy ID: Actual URL:', iframeSrc);
-                    return;
-                }
-                
-                const projectId = urlMatch[1];
                 console.log('WebSim Copy ID: Extracted project ID:', projectId);
                 
-                const projectLink = `https://websim.com/p/${projectId}`;
-                
-                // Copy to clipboard
+                // Copy ID to clipboard
                 try {
-                    await navigator.clipboard.writeText(projectLink);
-                    console.log('WebSim Copy ID: Copied to clipboard:', projectLink);
+                    await navigator.clipboard.writeText(projectId);
+                    console.log('WebSim Copy ID: Copied ID to clipboard:', projectId);
                     
                     // Visual feedback
-                    const originalText = copyButton.textContent;
-                    copyButton.textContent = 'Copied!';
-                    copyButton.style.background = '#10b981';
+                    const originalText = copyIdButton.textContent;
+                    copyIdButton.textContent = 'Copied!';
+                    copyIdButton.style.background = '#10b981';
                     
                     setTimeout(() => {
-                        copyButton.textContent = originalText;
-                        copyButton.style.background = '#3b82f6';
+                        copyIdButton.textContent = originalText;
+                        copyIdButton.style.background = '#6b7280';
                     }, 2000);
                     
                 } catch (clipboardError) {
                     console.error('WebSim Copy ID: Failed to copy to clipboard:', clipboardError);
+                    console.log('WebSim Copy ID: Project ID (copy manually):', projectId);
+                }
+                
+            } catch (error) {
+                console.error('WebSim Copy ID: Error extracting project ID:', error);
+            }
+        });
+        
+        // Create the "Copy permanent link" button
+        const copyLinkButton = document.createElement('button');
+        copyLinkButton.textContent = 'Copy permanent link';
+        copyLinkButton.style.cssText = `
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 4px;
+        `;
+        
+        copyLinkButton.addEventListener('mouseenter', () => {
+            copyLinkButton.style.background = '#2563eb';
+        });
+        
+        copyLinkButton.addEventListener('mouseleave', () => {
+            copyLinkButton.style.background = '#3b82f6';
+        });
+        
+        // Add click handler for Copy permanent link
+        copyLinkButton.addEventListener('click', async () => {
+            try {
+                console.log('WebSim Copy ID: Attempting to extract project ID from iframe URL...');
+                
+                const projectId = extractProjectId();
+                if (!projectId) return;
+                
+                console.log('WebSim Copy ID: Extracted project ID:', projectId);
+                
+                const projectLink = `https://websim.com/p/${projectId}`;
+                
+                // Copy link to clipboard
+                try {
+                    await navigator.clipboard.writeText(projectLink);
+                    console.log('WebSim Copy ID: Copied link to clipboard:', projectLink);
                     
-                    // Fallback - show the link in console
+                    // Visual feedback
+                    const originalText = copyLinkButton.textContent;
+                    copyLinkButton.textContent = 'Copied!';
+                    copyLinkButton.style.background = '#10b981';
+                    
+                    setTimeout(() => {
+                        copyLinkButton.textContent = originalText;
+                        copyLinkButton.style.background = '#3b82f6';
+                    }, 2000);
+                    
+                } catch (clipboardError) {
+                    console.error('WebSim Copy ID: Failed to copy to clipboard:', clipboardError);
                     console.log('WebSim Copy ID: Project Link (copy manually):', projectLink);
                 }
                 
@@ -128,9 +191,13 @@
             }
         });
         
-        targetContainer.appendChild(copyButton);
-        currentButton = copyButton;
-        console.log('WebSim Copy ID: Button created successfully');
+        // Add both buttons to the container
+        targetContainer.appendChild(copyIdButton);
+        targetContainer.appendChild(copyLinkButton);
+        
+        // Keep track of buttons for cleanup
+        currentButtons = [copyIdButton, copyLinkButton];
+        console.log('WebSim Copy ID: Buttons created successfully');
     }
     
     // Main function to handle route changes
@@ -138,8 +205,8 @@
         console.log('WebSim Copy ID: Route changed to:', window.location.pathname);
         
         if (!isMatchingRoute()) {
-            console.log('WebSim Copy ID: Not on a matching route, removing button');
-            removeExistingButton();
+            console.log('WebSim Copy ID: Not on a matching route, removing buttons');
+            removeExistingButtons();
             return;
         }
         
@@ -148,20 +215,20 @@
         // Check for existing iframe immediately
         const iframe = checkForIframes();
         if (iframe) {
-            console.log('WebSim Copy ID: Found iframe, creating button');
+            console.log('WebSim Copy ID: Found iframe, creating buttons');
             targetIframe = iframe;
-            createCopyButton(iframe);
+            createCopyButtons(iframe);
         } else {
-            console.log('WebSim Copy ID: No iframe found, removing button and waiting...');
-            removeExistingButton();
+            console.log('WebSim Copy ID: No iframe found, removing buttons and waiting...');
+            removeExistingButtons();
             
             // Set up observer to watch for iframe creation
             const observer = new MutationObserver((mutations) => {
                 const iframe = checkForIframes();
                 if (iframe) {
-                    console.log('WebSim Copy ID: Iframe appeared, creating button');
+                    console.log('WebSim Copy ID: Iframe appeared, creating buttons');
                     targetIframe = iframe;
-                    createCopyButton(iframe);
+                    createCopyButtons(iframe);
                     observer.disconnect();
                 }
             });

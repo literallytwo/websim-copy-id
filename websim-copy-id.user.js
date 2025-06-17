@@ -164,7 +164,16 @@
                 
                 console.log('WebSim Copy ID: Extracted project ID:', projectId);
                 
-                const projectLink = `https://websim.com/p/${projectId}`;
+                // Check if current URL has a version number
+                const currentPath = window.location.pathname;
+                const versionMatch = currentPath.match(/^\/@[^/]+\/[^/]+\/(\d+)/);
+                const version = versionMatch ? versionMatch[1] : null;
+                
+                let projectLink = `https://websim.com/p/${projectId}`;
+                if (version) {
+                    projectLink += `/${version}`;
+                    console.log('WebSim Copy ID: Found version in URL:', version);
+                }
                 
                 // Copy link to clipboard
                 try {

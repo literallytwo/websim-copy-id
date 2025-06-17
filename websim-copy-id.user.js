@@ -4,92 +4,48 @@
 // @version      1.0
 // @description  Copy WebSim project ID link to clipboard
 // @author       literallytwo
-// @match        https://websim.com/@*/*
+// @match        https://websim.com/
 // @grant        none
 // ==/UserScript==
 
 (function() {
     'use strict';
     
-    // Check if we're on the right route pattern
     const pathPattern = /^\/@[^/]+\/[^/]+/;
-    if (!pathPattern.test(window.location.pathname)) {
-        console.log('WebSim Copy ID: Not on a matching route');
-        return;
+    let targetIframe = null;
+    let currentButton = null;
+    
+    // Function to check if we're on a matching route
+    function isMatchingRoute() {
+        return pathPattern.test(window.location.pathname);
     }
     
-    console.log('WebSim Copy ID: Script loaded on matching route');
+    // Function to remove existing button
+    function removeExistingButton() {
+        if (currentButton && currentButton.parentNode) {
+            currentButton.parentNode.removeChild(currentButton);
+            currentButton = null;
+            console.log('WebSim Copy ID: Removed existing button');
+        }
+    }
     
-    let targetIframe = null;
-    let isIframeFound = false;
-    
-    // Function to wait for iframe creation
-    function waitForIframe() {
-        return new Promise((resolve, reject) => {
-            // Check if iframe already exists
-            const existingIframes = document.querySelectorAll('iframe');
-            if (existingIframes.length > 0) {
-                targetIframe = existingIframes[0];
-                isIframeFound = true;
-                console.log('WebSim Copy ID: Found existing iframe');
-                resolve(existingIframes[0]);
-                return;
-            }
-            
-            // Set up MutationObserver to watch for new iframes
-            const observer = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    mutation.addedNodes.forEach((node) => {
-                        if (node.nodeType === Node.ELEMENT_NODE) {
-                            // Check if the added node is an iframe
-                            if (node.tagName === 'IFRAME') {
-                                targetIframe = node;
-                                isIframeFound = true;
-                                observer.disconnect();
-                                console.log('WebSim Copy ID: Found new iframe');
-                                resolve(node);
-                                return;
-                            }
-                            
-                            // Check if any child nodes are iframes
-                            const iframes = node.querySelectorAll ? node.querySelectorAll('iframe') : [];
-                            if (iframes.length > 0) {
-                                targetIframe = iframes[0];
-                                isIframeFound = true;
-                                observer.disconnect();
-                                console.log('WebSim Copy ID: Found iframe in added content');
-                                resolve(iframes[0]);
-                                return;
-                            }
-                        }
-                    });
-                });
-            });
-            
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true
-            });
-            
-            // Timeout after 5 seconds
-            setTimeout(() => {
-                if (!isIframeFound) {
-                    observer.disconnect();
-                    console.log('WebSim Copy ID: Timeout - no iframe found after 5 seconds');
-                    reject(new Error('Timeout waiting for iframe'));
-                }
-            }, 5000);
-        });
+    // Function to check for iframes
+    function checkForIframes() {
+        const iframes = document.querySelectorAll('iframe');
+        return iframes.length > 0 ? iframes[0] : null;
     }
     
     // Function to create the copy button
-    function createCopyButton() {
+    function createCopyButton(iframe) {
         const targetContainer = document.querySelector('body > div > div.flex.items-stretch.flex-1.max-h-full.gap-0 > div.flex-1.flex.h-\\[100svh\\].relative > div.h-\\[44px\\].flex.flex-col.items-stretch.w-full.bg-adaptive-100.absolute.top-0 > div > div.flex.items-center.gap-1.flex-1.justify-end.h-full.px-2');
         
         if (!targetContainer) {
             console.error('WebSim Copy ID: Could not find target container for button');
             return;
         }
+        
+        // Remove any existing button first
+        removeExistingButton();
         
         // Create the button
         const copyButton = document.createElement('button');
@@ -115,7 +71,7 @@
         
         // Add click handler
         copyButton.addEventListener('click', async () => {
-            if (!targetIframe) {
+            if (!iframe) {
                 console.error('WebSim Copy ID: No iframe available');
                 return;
             }
@@ -124,7 +80,7 @@
                 console.log('WebSim Copy ID: Attempting to extract project ID from iframe URL...');
                 
                 // Get the iframe src URL
-                const iframeSrc = targetIframe.src;
+                const iframeSrc = iframe.src;
                 if (!iframeSrc) {
                     console.error('WebSim Copy ID: Iframe has no src attribute');
                     return;
@@ -173,18 +129,76 @@
         });
         
         targetContainer.appendChild(copyButton);
+        currentButton = copyButton;
         console.log('WebSim Copy ID: Button created successfully');
     }
     
-    // Main execution
-    waitForIframe()
-        .then(() => {
-            console.log('WebSim Copy ID: Iframe found, creating button...');
-            // Wait a bit for the UI to stabilize
-            setTimeout(createCopyButton, 1000);
-        })
-        .catch((error) => {
-            console.log('WebSim Copy ID: Failed to find iframe:', error.message);
-        });
+    // Main function to handle route changes
+    function handleRouteChange() {
+        console.log('WebSim Copy ID: Route changed to:', window.location.pathname);
+        
+        if (!isMatchingRoute()) {
+            console.log('WebSim Copy ID: Not on a matching route, removing button');
+            removeExistingButton();
+            return;
+        }
+        
+        console.log('WebSim Copy ID: On matching route, checking for iframes...');
+        
+        // Check for existing iframe immediately
+        const iframe = checkForIframes();
+        if (iframe) {
+            console.log('WebSim Copy ID: Found iframe, creating button');
+            targetIframe = iframe;
+            createCopyButton(iframe);
+        } else {
+            console.log('WebSim Copy ID: No iframe found, removing button and waiting...');
+            removeExistingButton();
+            
+            // Set up observer to watch for iframe creation
+            const observer = new MutationObserver((mutations) => {
+                const iframe = checkForIframes();
+                if (iframe) {
+                    console.log('WebSim Copy ID: Iframe appeared, creating button');
+                    targetIframe = iframe;
+                    createCopyButton(iframe);
+                    observer.disconnect();
+                }
+            });
+            
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+            
+            // Clean up observer after 10 seconds if no iframe found
+            setTimeout(() => {
+                observer.disconnect();
+                console.log('WebSim Copy ID: Stopped watching for iframes after 10 seconds');
+            }, 10000);
+        }
+    }
+    
+    // Set up SPA navigation detection
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+    
+    history.pushState = function(...args) {
+        originalPushState.apply(this, args);
+        setTimeout(handleRouteChange, 100); // Small delay to let the page update
+    };
+    
+    history.replaceState = function(...args) {
+        originalReplaceState.apply(this, args);
+        setTimeout(handleRouteChange, 100);
+    };
+    
+    window.addEventListener('popstate', () => {
+        setTimeout(handleRouteChange, 100);
+    });
+    
+    // Initial check on page load
+    console.log('WebSim Copy ID: Script loaded, checking initial route');
+    setTimeout(handleRouteChange, 1000); // Wait for page to fully load
     
 })(); 
